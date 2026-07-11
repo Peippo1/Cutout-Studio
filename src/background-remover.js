@@ -65,16 +65,15 @@ export function createBackgroundRemover({ segmentPerson }) {
     throw new TypeError("segmentPerson must be a function.");
   }
 
-  async function removeBackgroundFromImage(inputPath, outputPath, options = {}) {
+  async function removeBackgroundFromBuffer(inputBuffer, options = {}) {
     const edgeBlur = options.edgeBlur ?? DEFAULT_EDGE_BLUR;
-    const inputBuffer = await readFile(inputPath);
 
     // Sharp normalizes orientation and decodes the source image locally.
     const original = sharp(inputBuffer, { failOn: "none" }).rotate();
     const originalMetadata = await original.metadata();
 
     if (!originalMetadata.width || !originalMetadata.height) {
-      throw new Error(`Could not determine dimensions for ${inputPath}.`);
+      throw new Error("Could not determine input image dimensions.");
     }
 
     const segmentedBuffer = await segmentPerson(inputBuffer);
@@ -85,9 +84,7 @@ export function createBackgroundRemover({ segmentPerson }) {
       segmentedMetadata.width !== originalMetadata.width ||
       segmentedMetadata.height !== originalMetadata.height
     ) {
-      throw new Error(
-        `Segmentation output dimensions for ${inputPath} do not match the source image.`,
-      );
+      throw new Error("Segmentation output dimensions do not match the source image.");
     }
 
     // Feather the matte slightly to avoid cut-out looking edges on hair and clothing.
@@ -109,14 +106,25 @@ export function createBackgroundRemover({ segmentPerson }) {
       .png()
       .toBuffer();
 
+    return {
+      outputBuffer,
+      width: originalMetadata.width,
+      height: originalMetadata.height,
+    };
+  }
+
+  async function removeBackgroundFromImage(inputPath, outputPath, options = {}) {
+    const inputBuffer = await readFile(inputPath);
+    const result = await removeBackgroundFromBuffer(inputBuffer, options);
+
     await mkdir(path.dirname(outputPath), { recursive: true });
-    await writeFile(outputPath, outputBuffer);
+    await writeFile(outputPath, result.outputBuffer);
 
     return {
       inputPath,
       outputPath,
-      width: originalMetadata.width,
-      height: originalMetadata.height,
+      width: result.width,
+      height: result.height,
     };
   }
 
@@ -153,6 +161,7 @@ export function createBackgroundRemover({ segmentPerson }) {
   }
 
   return {
+    removeBackgroundFromBuffer,
     removeBackgroundFromImage,
     removeBackgroundFromDirectory,
   };
