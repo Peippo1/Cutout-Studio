@@ -1,0 +1,19 @@
+{
+  "name": "background-removal-tool",
+  "version": "0.1.0",
+  "description": "On-device background removal for portraits with single-image and batch processing support.",
+  "type": "module",
+  "bin": {
+    "remove-background": "./src/cli.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@imgly/background-removal-node": "^1.4.5",
+    "sharp": "^0.34.2"
+  }
+}
