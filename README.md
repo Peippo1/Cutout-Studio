@@ -8,12 +8,13 @@ This project now ships two surfaces:
 ## What it does
 
 - `sharp` decodes common raster formats and writes the final transparent PNG.
-- `@imgly/background-removal-node` performs local person/background segmentation inside the running Node process.
+- A vendored ONNX-based segmentation runtime performs local person/background inference inside the running Node process without the stale vulnerable package that originally wrapped it.
 - The alpha matte is lightly blurred before export so hair and clothing edges look less cut out.
 - The web API enforces file-size limits, image-dimension limits, MIME validation, and per-IP rate limits.
 - GitHub OAuth can require a verified email before a session is allowed to process images.
 - The current acceptable-use policy version must be accepted in-session before uploads are processed.
 - Cloudflare Turnstile can be enabled as an additional verification layer before the server processes the upload.
+- Startup now fails fast if GitHub auth or Turnstile are only partially configured.
 
 ## Install
 
@@ -41,6 +42,12 @@ Serve the built app with the API:
 
 ```bash
 npm run start
+```
+
+Health check:
+
+```bash
+curl http://127.0.0.1:3001/api/health
 ```
 
 ### Environment
@@ -98,6 +105,7 @@ node ./src/cli.js batch --input ./photos --output ./exports --recursive
 - The CLI processes images locally on the machine running the command.
 - The web surface processes uploads on the server hosting the app, so its privacy model is different from the standalone CLI.
 - The current web session store uses the default in-memory store. That is acceptable for local use or a small single-instance deployment, but a production multi-instance deployment should move sessions into a shared store.
+- The segmentation runtime is vendored under `vendor/background-removal/` to remove the vulnerable upstream wrapper package from the shipped dependency tree while preserving local inference.
 
 ## Tests
 

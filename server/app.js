@@ -103,6 +103,16 @@ export async function createApp({
     }),
   );
 
+  app.get("/api/health", (_request, response) => {
+    response.json({
+      ok: true,
+      authEnabled,
+      verificationEnabled: Boolean(
+        effectiveConfig.turnstileSiteKey && effectiveConfig.turnstileSecretKey,
+      ),
+    });
+  });
+
   if (authEnabled) {
     const authPassport = configurePassport(effectiveConfig);
     app.use(authPassport.initialize());

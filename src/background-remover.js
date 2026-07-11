@@ -47,7 +47,7 @@ async function toBuffer(value) {
 }
 
 export async function loadSegmenter() {
-  const { removeBackground } = await import("@imgly/background-removal-node");
+  const { removeBackground } = await import("../vendor/background-removal/index.mjs");
 
   return async function segmentPerson(inputBuffer) {
     const result = await removeBackground(inputBuffer, {

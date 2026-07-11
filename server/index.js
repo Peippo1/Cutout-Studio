@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import { createApp } from "./app.js";
-import { config } from "./config.js";
+import { config, validateServerConfig } from "./config.js";
 
+validateServerConfig(config);
 const app = await createApp();
 const server = createServer(app);
 

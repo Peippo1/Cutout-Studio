@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createPublicConfig } from "../../server/config.js";
+import { createPublicConfig, validateServerConfig } from "../../server/config.js";
 import { isSupportedMimeType, validateImageMetadata } from "../../server/app.js";
 import { verifyTurnstileToken } from "../../server/verification.js";
 
@@ -23,6 +23,36 @@ test("validateImageMetadata rejects images above the configured pixel ceiling", 
   assert.throws(
     () => validateImageMetadata({ width: 7000, height: 6000 }, 25_000_000),
     /Image is too large/,
+  );
+});
+
+test("validateServerConfig rejects partial GitHub auth configuration", () => {
+  assert.throws(
+    () =>
+      validateServerConfig({
+        sessionSecret: "secret",
+        githubClientId: "id",
+        githubClientSecret: "",
+        githubCallbackUrl: "http://localhost/callback",
+        turnstileSiteKey: "",
+        turnstileSecretKey: "",
+      }),
+    /must all be set together/,
+  );
+});
+
+test("validateServerConfig rejects half-configured Turnstile", () => {
+  assert.throws(
+    () =>
+      validateServerConfig({
+        sessionSecret: "",
+        githubClientId: "",
+        githubClientSecret: "",
+        githubCallbackUrl: "",
+        turnstileSiteKey: "site",
+        turnstileSecretKey: "",
+      }),
+    /TURNSTILE_SECRET_KEY/,
   );
 });
 

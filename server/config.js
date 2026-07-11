@@ -36,6 +36,37 @@ export const config = {
   turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || "",
 };
 
+export function validateServerConfig(runtimeConfig = config) {
+  const hasAnyGitHubAuthSetting = Boolean(
+    runtimeConfig.githubClientId ||
+      runtimeConfig.githubClientSecret ||
+      runtimeConfig.githubCallbackUrl,
+  );
+  const hasAllGitHubAuthSettings = Boolean(
+    runtimeConfig.githubClientId &&
+      runtimeConfig.githubClientSecret &&
+      runtimeConfig.githubCallbackUrl,
+  );
+
+  if (hasAnyGitHubAuthSetting && !runtimeConfig.sessionSecret) {
+    throw new Error("SESSION_SECRET is required when GitHub login is enabled.");
+  }
+
+  if (hasAnyGitHubAuthSetting && !hasAllGitHubAuthSettings) {
+    throw new Error(
+      "GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, and GITHUB_CALLBACK_URL must all be set together.",
+    );
+  }
+
+  if (runtimeConfig.turnstileSiteKey && !runtimeConfig.turnstileSecretKey) {
+    throw new Error("TURNSTILE_SECRET_KEY is required when TURNSTILE_SITE_KEY is set.");
+  }
+
+  if (!runtimeConfig.turnstileSiteKey && runtimeConfig.turnstileSecretKey) {
+    throw new Error("TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is set.");
+  }
+}
+
 export function createPublicConfig() {
   return {
     authEnabled: Boolean(
