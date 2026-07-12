@@ -83,6 +83,16 @@ export function validateServerConfig(runtimeConfig = config) {
     throw new Error("DATABASE_URL is required when GitHub login is enabled.");
   }
 
+  if (hasAllGitHubAuthSettings && !runtimeConfig.siteUrl) {
+    throw new Error("SITE_URL is required when GitHub login is enabled.");
+  }
+
+  if (hasAllGitHubAuthSettings && runtimeConfig.moderationProvider === "disabled") {
+    throw new Error(
+      "MODERATION_PROVIDER must be configured for the verified beta flow when GitHub login is enabled.",
+    );
+  }
+
   if (runtimeConfig.moderationProvider === "openai" && !runtimeConfig.openAiApiKey) {
     throw new Error("OPENAI_API_KEY is required when MODERATION_PROVIDER=openai.");
   }

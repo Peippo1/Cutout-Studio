@@ -64,6 +64,48 @@ test("validateServerConfig rejects half-configured Turnstile", () => {
   );
 });
 
+test("validateServerConfig rejects auth-enabled beta without an active moderation provider", () => {
+  assert.throws(
+    () =>
+      validateServerConfig({
+        sessionSecret: "secret",
+        githubClientId: "id",
+        githubClientSecret: "github-secret",
+        githubCallbackUrl: "https://cutout.example/auth/github/callback",
+        siteUrl: "https://cutout.example",
+        databaseUrl: "postgres://example",
+        moderationProvider: "disabled",
+        moderationFailClosed: true,
+        openAiApiKey: "",
+        adminEmails: [],
+        turnstileSiteKey: "",
+        turnstileSecretKey: "",
+      }),
+    /MODERATION_PROVIDER/,
+  );
+});
+
+test("validateServerConfig rejects auth-enabled beta without SITE_URL", () => {
+  assert.throws(
+    () =>
+      validateServerConfig({
+        sessionSecret: "secret",
+        githubClientId: "id",
+        githubClientSecret: "github-secret",
+        githubCallbackUrl: "https://cutout.example/auth/github/callback",
+        siteUrl: "",
+        databaseUrl: "postgres://example",
+        moderationProvider: "openai",
+        moderationFailClosed: true,
+        openAiApiKey: "key",
+        adminEmails: [],
+        turnstileSiteKey: "",
+        turnstileSecretKey: "",
+      }),
+    /SITE_URL/,
+  );
+});
+
 test("verifyTurnstileToken bypasses verification when secret is not configured", async () => {
   const result = await verifyTurnstileToken({
     secretKey: "",

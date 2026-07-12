@@ -104,6 +104,12 @@ Build the product:
 npm run build
 ```
 
+Run a launch preflight against the current environment:
+
+```bash
+npm run deploy:preflight
+```
+
 Serve the built client through the API:
 
 ```bash
@@ -171,6 +177,15 @@ Before a real public beta launch, set production environment variables for:
 - `SITE_URL` set to the final deployed URL
 
 Without those values, the site can render but it will not satisfy the strict verified beta flow described above.
+
+Recommended production launch sequence:
+
+1. Set the required runtime variables in Sites.
+2. Run `npm run deploy:preflight` locally against the same values.
+3. Verify `npm test`, `npm run build`, and `npm audit`.
+4. Save and deploy the matching Sites version.
+5. Confirm `/api/health` and `/api/readiness` are green on the live URL.
+6. Update the portfolio launch post and project page with the public beta link.
 
 ## Tests added for this hardening pass
 
