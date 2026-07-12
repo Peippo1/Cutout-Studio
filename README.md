@@ -182,6 +182,10 @@ Before a real public beta launch, set production environment variables for:
 
 Without those values, the site can render but it will not satisfy the strict verified beta flow described above.
 
+The Sites artifact is intentionally packaged with a dependency-free runtime shim. Until production
+secrets are configured, it serves the app shell and fail-closed API responses rather than running
+background removal without GitHub login, Postgres, moderation, and verification.
+
 Recommended production launch sequence:
 
 1. Set the required runtime variables in Sites.
