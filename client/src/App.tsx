@@ -3,6 +3,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 type AppConfig = {
   authEnabled: boolean;
   verificationEnabled: boolean;
+  moderationActive: boolean;
   turnstileSiteKey: string | null;
   maxUploadMb: number;
   maxImagePixels: number;
@@ -11,16 +12,48 @@ type AppConfig = {
   acceptableUseVersion: string;
 };
 
+type UserStatus = "active" | "blocked" | "review_required";
+
 type SessionState = {
   authEnabled: boolean;
   signedIn: boolean;
   policyAccepted: boolean;
   acceptableUseVersion: string;
+  isAdmin: boolean;
+  moderationActive: boolean;
+  userStatus: UserStatus | null;
   user: {
+    id: string;
     login: string;
     displayName: string;
     email: string;
+    status: UserStatus;
   } | null;
+};
+
+type AdminQueue = {
+  events: Array<{
+    eventType: string;
+    requestId: string;
+    status: string;
+    reasonCode: string | null;
+    createdAt: string;
+    userId: string | null;
+  }>;
+  reports: Array<{
+    id: string;
+    reporterUserId: string;
+    targetRequestId: string | null;
+    reason: string;
+    status: string;
+    createdAt: string;
+  }>;
+  users: Array<{
+    id: string;
+    login: string;
+    email: string;
+    status: UserStatus;
+  }>;
 };
 
 type LoadState = "idle" | "loading" | "success" | "error";
@@ -108,24 +141,27 @@ function useTurnstile(siteKey: string | null, enabled: boolean) {
     };
   }, [enabled, siteKey]);
 
-  const reset = () => {
-    setToken("");
-
-    if (widgetIdRef.current && window.turnstile) {
-      window.turnstile.reset(widgetIdRef.current);
-    }
-  };
-
   return {
     containerRef,
     token,
-    reset,
+    reset() {
+      setToken("");
+
+      if (widgetIdRef.current && window.turnstile) {
+        window.turnstile.reset(widgetIdRef.current);
+      }
+    },
   };
+}
+
+function formatTimestamp(value: string) {
+  return new Date(value).toLocaleString();
 }
 
 export function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [session, setSession] = useState<SessionState | null>(null);
+  const [adminQueue, setAdminQueue] = useState<AdminQueue | null>(null);
   const [configError, setConfigError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [status, setStatus] = useState<LoadState>("idle");
@@ -134,7 +170,33 @@ export function App() {
   const [downloadName, setDownloadName] = useState("");
   const [resultMeta, setResultMeta] = useState<{ width: number; height: number } | null>(null);
   const [dragActive, setDragActive] = useState(false);
+  const [latestRequestId, setLatestRequestId] = useState("");
+  const [reportReason, setReportReason] = useState("");
+  const [reportTargetId, setReportTargetId] = useState("");
+  const [reportMessage, setReportMessage] = useState("");
   const formId = useId();
+
+  const refreshSession = async () => {
+    const nextSession = (await fetch("/api/session").then((response) => {
+      if (!response.ok) {
+        throw new Error("Failed to load the current session.");
+      }
+
+      return response.json() as Promise<SessionState>;
+    })) as SessionState;
+    setSession(nextSession);
+    return nextSession;
+  };
+
+  const loadAdminQueue = async () => {
+    const response = await fetch("/api/admin/review");
+
+    if (!response.ok) {
+      throw new Error("Failed to load the admin review queue.");
+    }
+
+    setAdminQueue((await response.json()) as AdminQueue);
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -155,10 +217,16 @@ export function App() {
         return response.json() as Promise<SessionState>;
       }),
     ])
-      .then(([nextConfig, nextSession]) => {
-        if (!cancelled) {
-          setConfig(nextConfig);
-          setSession(nextSession);
+      .then(async ([nextConfig, nextSession]) => {
+        if (cancelled) {
+          return;
+        }
+
+        setConfig(nextConfig);
+        setSession(nextSession);
+
+        if (nextSession.isAdmin) {
+          await loadAdminQueue().catch(() => null);
         }
       })
       .catch((error: Error) => {
@@ -184,6 +252,8 @@ export function App() {
   const authEnabled = Boolean(config?.authEnabled);
   const isSignedIn = Boolean(session?.signedIn);
   const policyAccepted = Boolean(session?.policyAccepted);
+  const isBlocked = session?.userStatus === "blocked";
+  const isReviewRequired = session?.userStatus === "review_required";
   const { containerRef, token, reset } = useTurnstile(
     config?.turnstileSiteKey ?? null,
     verificationEnabled,
@@ -215,6 +285,16 @@ export function App() {
       return;
     }
 
+    if (isBlocked) {
+      setErrorMessage("This account is blocked from processing images.");
+      return;
+    }
+
+    if (isReviewRequired) {
+      setErrorMessage("This account requires manual review before processing can continue.");
+      return;
+    }
+
     if (!policyAccepted) {
       setErrorMessage("Accept the usage policy before processing.");
       return;
@@ -234,15 +314,23 @@ export function App() {
 
     setStatus("loading");
     setErrorMessage("");
+    setReportMessage("");
 
     try {
       const response = await fetch("/api/remove-background", {
         method: "POST",
         body,
       });
+      const requestId = response.headers.get("x-request-id") ?? "";
+      setLatestRequestId(requestId);
+      setReportTargetId(requestId);
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = (await response.json().catch(() => null)) as
+          | { error?: string; requestId?: string }
+          | null;
+        setLatestRequestId(payload?.requestId ?? requestId);
+        setReportTargetId(payload?.requestId ?? requestId);
         throw new Error(payload?.error ?? "Image processing failed.");
       }
 
@@ -260,10 +348,12 @@ export function App() {
       setDownloadName(`${selectedFile.name.replace(/\.[^.]+$/, "")}.transparent.png`);
       setStatus("success");
       reset();
+      await refreshSession();
     } catch (error) {
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Image processing failed.");
       reset();
+      await refreshSession().catch(() => null);
     }
   };
 
@@ -295,16 +385,83 @@ export function App() {
       method: "POST",
     });
 
+    setAdminQueue(null);
     setSession((currentSession) =>
       currentSession
         ? {
             ...currentSession,
             signedIn: false,
             policyAccepted: false,
+            isAdmin: false,
+            userStatus: null,
             user: null,
           }
         : currentSession,
     );
+  };
+
+  const submitAbuseReport = async () => {
+    setReportMessage("");
+
+    try {
+      const response = await fetch("/api/report-abuse", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          targetRequestId: reportTargetId,
+          reason: reportReason,
+        }),
+      });
+      const payload = (await response.json()) as
+        | { error?: string; requestId?: string; report?: { id: string } }
+        | undefined;
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Could not submit the report.");
+      }
+
+      setReportMessage(`Report submitted. Reference ${payload?.report?.id ?? payload?.requestId ?? ""}.`);
+      setReportReason("");
+
+      if (session?.isAdmin) {
+        await loadAdminQueue().catch(() => null);
+      }
+    } catch (error) {
+      setReportMessage(error instanceof Error ? error.message : "Could not submit the report.");
+    }
+  };
+
+  const updateUserStatus = async (userId: string, action: "block_user" | "reinstate_user") => {
+    const response = await fetch(`/api/admin/users/${userId}/status`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ action }),
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Admin action failed.");
+    }
+
+    await loadAdminQueue();
+    await refreshSession();
+  };
+
+  const markReportReviewed = async (reportId: string) => {
+    const response = await fetch(`/api/admin/reports/${reportId}/review`, {
+      method: "POST",
+    });
+
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(payload?.error ?? "Could not review the report.");
+    }
+
+    await loadAdminQueue();
   };
 
   return (
@@ -316,7 +473,7 @@ export function App() {
             <span className="brand-mark">studio</span>
           </div>
           <div className="top-rail">
-            <div className="brand-note">Portrait-focused removal with guardrails</div>
+            <div className="brand-note">Verified beta with moderation and audit logging</div>
             {session?.user ? (
               <button className="secondary-button" onClick={logout} type="button">
                 Sign out {session.user.login}
@@ -327,34 +484,34 @@ export function App() {
 
         <div className="layout">
           <section className="intro-card">
-            <p className="eyebrow">Free beta access with identity checks</p>
-            <h1>Cut the background, keep the person.</h1>
+            <p className="eyebrow">Free beta with accountable access</p>
+            <h1>Remove the background. Keep the standards.</h1>
             <p className="lede">
-              Free to use does not have to mean anonymous. This upload flow can require
-              GitHub sign-in, verified email, acceptable-use acceptance, Turnstile, and
-              bounded per-user quotas before a portrait is processed.
+              Cutout Studio is intentionally not an anonymous utility. Processing can require
+              verified GitHub sign-in, policy acceptance, Turnstile, automated moderation, and
+              audit logging before a portrait is touched.
             </p>
 
             <div className="signal-list">
               <article>
-                <h2>Usage stays bounded</h2>
+                <h2>Uploads are screened first</h2>
                 <p>
-                  The API rejects oversized files, enforces MIME checks, and rate-limits
-                  repeated processing requests.
+                  Moderation runs before background removal so disallowed or uncertain images are
+                  stopped before any cutout work happens.
                 </p>
               </article>
               <article>
-                <h2>Identity is accountable</h2>
+                <h2>No image retention by default</h2>
                 <p>
-                  GitHub OAuth can require a verified email before a session is allowed to
-                  process images, which is stronger than anonymous captchas alone.
+                  Raw uploads and output PNGs stay out of storage. The service keeps only minimal
+                  audit metadata, decision codes, and request identifiers.
                 </p>
               </article>
               <article>
-                <h2>Use policy is enforceable</h2>
+                <h2>Abuse has consequences</h2>
                 <p>
-                  The server will not process uploads until the current acceptable-use
-                  version has been acknowledged for the active session.
+                  Usage is logged, reports are reviewable, and accounts can be blocked or placed
+                  into manual review when activity crosses the line.
                 </p>
               </article>
             </div>
@@ -368,7 +525,13 @@ export function App() {
                   <h2>Process one portrait at a time</h2>
                 </div>
                 <span className="policy-pill">
-                  {authEnabled ? "Login required" : verificationEnabled ? "Verification required" : "Local mode"}
+                  {isBlocked
+                    ? "Account blocked"
+                    : isReviewRequired
+                      ? "Manual review"
+                      : authEnabled
+                        ? "Verified beta"
+                        : "Local mode"}
                 </span>
               </div>
 
@@ -378,8 +541,8 @@ export function App() {
                     <div className="turnstile-copy">
                       <strong>Sign in before upload</strong>
                       <span>
-                        Free access is tied to a verified GitHub email so abusive or illegal
-                        use is harder to do anonymously.
+                        Free access is tied to a verified GitHub email so misuse is harder to do
+                        anonymously and repeated abuse can be traced to an account.
                       </span>
                     </div>
                     <a className="auth-link" href="/auth/github">
@@ -393,14 +556,28 @@ export function App() {
                     <div className="turnstile-copy">
                       <strong>Accept the usage policy</strong>
                       <span>
-                        You must confirm that you own the image or have permission to edit it,
-                        and that you will not use the tool for illegal, exploitative, or abusive
-                        content. Policy version: {config?.acceptableUseVersion}
+                        You must confirm that you own the image or are permitted to edit it, that
+                        you will not use the tool for illegal, exploitative, or abusive content,
+                        and that usage is logged with request identifiers. Policy version:{" "}
+                        {config?.acceptableUseVersion}
                       </span>
                     </div>
                     <button className="secondary-button" onClick={acceptPolicy} type="button">
                       Accept and continue
                     </button>
+                  </div>
+                ) : null}
+
+                {isBlocked || isReviewRequired ? (
+                  <div className="gate-card gate-card-policy">
+                    <div className="turnstile-copy">
+                      <strong>{isBlocked ? "Processing disabled" : "Manual review required"}</strong>
+                      <span>
+                        {isBlocked
+                          ? "This account cannot process additional images. If this is unexpected, contact the operator with your latest request ID."
+                          : "Recent activity requires operator review before more images can be processed."}
+                      </span>
+                    </div>
                   </div>
                 ) : null}
 
@@ -458,7 +635,9 @@ export function App() {
                       status === "loading" ||
                       Boolean(configError) ||
                       (authEnabled && !isSignedIn) ||
-                      !policyAccepted
+                      !policyAccepted ||
+                      isBlocked ||
+                      isReviewRequired
                     }
                   >
                     {status === "loading" ? "Removing background..." : "Choose and process"}
@@ -467,18 +646,23 @@ export function App() {
                     {status === "success"
                       ? "Transparent PNG ready."
                       : status === "loading"
-                        ? "Processing on the server..."
+                        ? "Running moderation and cutout..."
                         : authEnabled && !isSignedIn
                           ? "Sign in with GitHub to unlock processing."
-                          : !policyAccepted
-                            ? "Accept the policy to unlock processing."
-                            : "Supported for portrait photos."}
+                          : isBlocked
+                            ? "This account is blocked."
+                            : isReviewRequired
+                              ? "This account needs manual review."
+                              : !policyAccepted
+                                ? "Accept the policy to unlock processing."
+                                : "Supported for portrait photos."}
                   </span>
                 </div>
               </form>
 
               {errorMessage ? <p className="error-banner">{errorMessage}</p> : null}
               {configError ? <p className="error-banner">{configError}</p> : null}
+              {latestRequestId ? <p className="request-id">Request ID: {latestRequestId}</p> : null}
             </div>
 
             <aside className="limits-card">
@@ -507,6 +691,14 @@ export function App() {
                     <dt>Image ceiling</dt>
                     <dd>{formatPixels(config.maxImagePixels)}</dd>
                   </div>
+                  <div>
+                    <dt>Moderation</dt>
+                    <dd>{config.moderationActive ? "Active before processing" : "Disabled here"}</dd>
+                  </div>
+                  <div>
+                    <dt>Policy</dt>
+                    <dd>{config.acceptableUseVersion}</dd>
+                  </div>
                 </dl>
               ) : (
                 <p className="placeholder-copy">Loading policy details...</p>
@@ -532,8 +724,8 @@ export function App() {
                 ) : (
                   <div className="empty-preview">
                     <p>
-                      The processed cutout appears here after a successful request from a
-                      signed-in, policy-approved session.
+                      The processed cutout appears here after a successful request from a verified,
+                      policy-approved session that passes the safety checks.
                     </p>
                   </div>
                 )}
@@ -546,6 +738,122 @@ export function App() {
                 </span>
               </div>
             </section>
+
+            {session?.signedIn ? (
+              <section className="result-panel report-panel">
+                <div className="panel-header">
+                  <div>
+                    <p className="panel-label">Safety</p>
+                    <h2>Report misuse</h2>
+                  </div>
+                </div>
+                <div className="report-grid">
+                  <label>
+                    Request ID
+                    <input
+                      value={reportTargetId}
+                      onChange={(event) => setReportTargetId(event.target.value)}
+                      placeholder="req_..."
+                    />
+                  </label>
+                  <label>
+                    Reason
+                    <textarea
+                      value={reportReason}
+                      onChange={(event) => setReportReason(event.target.value)}
+                      placeholder="Why does this request look abusive or unsafe?"
+                      rows={4}
+                    />
+                  </label>
+                  <button
+                    className="secondary-button"
+                    onClick={submitAbuseReport}
+                    type="button"
+                    disabled={reportReason.trim().length < 8}
+                  >
+                    Submit report
+                  </button>
+                  {reportMessage ? <p className="status-copy">{reportMessage}</p> : null}
+                </div>
+              </section>
+            ) : null}
+
+            {session?.isAdmin ? (
+              <section className="result-panel admin-panel">
+                <div className="panel-header">
+                  <div>
+                    <p className="panel-label">Admin review</p>
+                    <h2>Recent safety queue</h2>
+                  </div>
+                  <button className="secondary-button" onClick={() => loadAdminQueue()} type="button">
+                    Refresh
+                  </button>
+                </div>
+
+                {adminQueue ? (
+                  <div className="admin-grid">
+                    <div className="admin-column">
+                      <h3>Flagged events</h3>
+                      {adminQueue.events.map((event) => (
+                        <article className="admin-card" key={`${event.requestId}-${event.createdAt}`}>
+                          <strong>{event.eventType}</strong>
+                          <span>{event.reasonCode ?? "n/a"}</span>
+                          <span>{event.requestId}</span>
+                          <span>{formatTimestamp(event.createdAt)}</span>
+                        </article>
+                      ))}
+                    </div>
+
+                    <div className="admin-column">
+                      <h3>Abuse reports</h3>
+                      {adminQueue.reports.map((report) => (
+                        <article className="admin-card" key={report.id}>
+                          <strong>Report {report.id}</strong>
+                          <span>{report.targetRequestId ?? "No request ID"}</span>
+                          <span>{report.reason}</span>
+                          <button
+                            className="secondary-button"
+                            onClick={() => markReportReviewed(report.id)}
+                            type="button"
+                          >
+                            Mark reviewed
+                          </button>
+                        </article>
+                      ))}
+                    </div>
+
+                    <div className="admin-column">
+                      <h3>Managed accounts</h3>
+                      {adminQueue.users.map((user) => (
+                        <article className="admin-card" key={user.id}>
+                          <strong>{user.login}</strong>
+                          <span>{user.email}</span>
+                          <span>Status: {user.status}</span>
+                          <div className="admin-actions">
+                            <button
+                              className="secondary-button"
+                              onClick={() => updateUserStatus(user.id, "block_user")}
+                              type="button"
+                            >
+                              Block
+                            </button>
+                            <button
+                              className="secondary-button"
+                              onClick={() => updateUserStatus(user.id, "reinstate_user")}
+                              type="button"
+                            >
+                              Reinstate
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="placeholder-copy">Loading the review queue...</p>
+                )}
+              </section>
+            ) : null}
           </section>
         </div>
       </section>

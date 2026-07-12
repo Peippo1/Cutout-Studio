@@ -1,7 +1,12 @@
 import passport from "passport";
 import { Strategy as GitHubStrategy } from "passport-github2";
 
-export function configurePassport({ githubClientId, githubClientSecret, githubCallbackUrl }) {
+export function configurePassport({
+  githubClientId,
+  githubClientSecret,
+  githubCallbackUrl,
+  dataStore,
+}) {
   passport.serializeUser((user, done) => {
     done(null, user);
   });
@@ -18,7 +23,7 @@ export function configurePassport({ githubClientId, githubClientSecret, githubCa
         callbackURL: githubCallbackUrl,
         scope: ["user:email"],
       },
-      (_accessToken, _refreshToken, profile, done) => {
+      async (_accessToken, _refreshToken, profile, done) => {
         const verifiedEmail = profile.emails?.find((email) => email.verified)?.value;
 
         if (!verifiedEmail) {
@@ -28,12 +33,18 @@ export function configurePassport({ githubClientId, githubClientSecret, githubCa
           return;
         }
 
-        done(null, {
-          id: profile.id,
-          login: profile.username,
-          displayName: profile.displayName || profile.username,
-          email: verifiedEmail,
-        });
+        try {
+          const user = await dataStore.findOrCreateUser({
+            githubId: profile.id,
+            login: profile.username,
+            displayName: profile.displayName || profile.username,
+            email: verifiedEmail,
+          });
+
+          done(null, user);
+        } catch (error) {
+          done(error);
+        }
       },
     ),
   );

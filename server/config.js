@@ -21,6 +21,7 @@ function readPositiveNumber(name, fallback) {
 export const config = {
   host: process.env.HOST || "127.0.0.1",
   port: readPositiveNumber("PORT", 3001),
+  siteUrl: process.env.SITE_URL || "",
   maxUploadMb: readPositiveNumber("MAX_UPLOAD_MB", 10),
   maxImagePixels: readPositiveNumber("MAX_IMAGE_PIXELS", 25_000_000),
   rateLimitWindowMinutes: readPositiveNumber("RATE_LIMIT_WINDOW_MINUTES", 60),
@@ -29,11 +30,23 @@ export const config = {
   sessionTtlDays: readPositiveNumber("SESSION_TTL_DAYS", 7),
   acceptableUseVersion: process.env.ACCEPTABLE_USE_VERSION || "2026-07-11",
   trustProxy: process.env.TRUST_PROXY === "1",
+  databaseUrl: process.env.DATABASE_URL || "",
+  databaseSsl: process.env.DATABASE_SSL === "1",
+  adminEmails: (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
   githubClientId: process.env.GITHUB_CLIENT_ID || "",
   githubClientSecret: process.env.GITHUB_CLIENT_SECRET || "",
-  githubCallbackUrl: process.env.GITHUB_CALLBACK_URL || "",
+  githubCallbackUrl:
+    process.env.GITHUB_CALLBACK_URL ||
+    (process.env.SITE_URL ? `${process.env.SITE_URL.replace(/\/$/, "")}/auth/github/callback` : ""),
   turnstileSiteKey: process.env.TURNSTILE_SITE_KEY || "",
   turnstileSecretKey: process.env.TURNSTILE_SECRET_KEY || "",
+  moderationProvider: process.env.MODERATION_PROVIDER || "disabled",
+  moderationModel: process.env.MODERATION_MODEL || "gpt-4.1-mini",
+  moderationFailClosed: process.env.MODERATION_FAIL_CLOSED === "1",
+  openAiApiKey: process.env.OPENAI_API_KEY || "",
 };
 
 export function validateServerConfig(runtimeConfig = config) {
@@ -65,22 +78,31 @@ export function validateServerConfig(runtimeConfig = config) {
   if (!runtimeConfig.turnstileSiteKey && runtimeConfig.turnstileSecretKey) {
     throw new Error("TURNSTILE_SITE_KEY is required when TURNSTILE_SECRET_KEY is set.");
   }
+
+  if (hasAllGitHubAuthSettings && !runtimeConfig.databaseUrl) {
+    throw new Error("DATABASE_URL is required when GitHub login is enabled.");
+  }
+
+  if (runtimeConfig.moderationProvider === "openai" && !runtimeConfig.openAiApiKey) {
+    throw new Error("OPENAI_API_KEY is required when MODERATION_PROVIDER=openai.");
+  }
 }
 
-export function createPublicConfig() {
+export function createPublicConfig(runtimeConfig = config) {
   return {
     authEnabled: Boolean(
-      config.sessionSecret &&
-        config.githubClientId &&
-        config.githubClientSecret &&
-        config.githubCallbackUrl,
+      runtimeConfig.sessionSecret &&
+        runtimeConfig.githubClientId &&
+        runtimeConfig.githubClientSecret &&
+        runtimeConfig.githubCallbackUrl,
     ),
-    verificationEnabled: Boolean(config.turnstileSiteKey && config.turnstileSecretKey),
-    turnstileSiteKey: config.turnstileSiteKey || null,
-    maxUploadMb: config.maxUploadMb,
-    maxImagePixels: config.maxImagePixels,
-    rateLimitWindowMinutes: config.rateLimitWindowMinutes,
-    rateLimitMaxRequests: config.rateLimitMaxRequests,
-    acceptableUseVersion: config.acceptableUseVersion,
+    verificationEnabled: Boolean(runtimeConfig.turnstileSiteKey && runtimeConfig.turnstileSecretKey),
+    moderationActive: runtimeConfig.moderationProvider !== "disabled",
+    turnstileSiteKey: runtimeConfig.turnstileSiteKey || null,
+    maxUploadMb: runtimeConfig.maxUploadMb,
+    maxImagePixels: runtimeConfig.maxImagePixels,
+    rateLimitWindowMinutes: runtimeConfig.rateLimitWindowMinutes,
+    rateLimitMaxRequests: runtimeConfig.rateLimitMaxRequests,
+    acceptableUseVersion: runtimeConfig.acceptableUseVersion,
   };
 }

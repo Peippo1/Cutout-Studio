@@ -1,82 +1,126 @@
-# Background Removal Tool
+# Cutout Studio
 
-This project now ships two surfaces:
+Cutout Studio is a portrait-focused background removal app with a stricter beta launch posture than a typical anonymous image utility.
 
-- a CLI for single-image and batch background removal
-- a lightweight React + TypeScript frontend with an Express API, usage limits, login-backed access control, and optional Turnstile verification
+It ships with:
 
-## What it does
+- a local CLI for single-image and directory batch processing
+- a web product built with React, TypeScript, Express, and local ONNX-based person segmentation
+- safety controls for verified GitHub sign-in, policy acceptance, moderation, audit logging, abuse reporting, and admin review
 
-- `sharp` decodes common raster formats and writes the final transparent PNG.
-- A vendored ONNX-based segmentation runtime performs local person/background inference inside the running Node process without the stale vulnerable package that originally wrapped it.
-- The alpha matte is lightly blurred before export so hair and clothing edges look less cut out.
-- The web API enforces file-size limits, image-dimension limits, MIME validation, and per-IP rate limits.
-- GitHub OAuth can require a verified email before a session is allowed to process images.
-- The current acceptable-use policy version must be accepted in-session before uploads are processed.
-- Cloudflare Turnstile can be enabled as an additional verification layer before the server processes the upload.
-- Startup now fails fast if GitHub auth or Turnstile are only partially configured.
+## Product overview
 
-## Install
+![Cutout Studio desktop screenshot](docs/screenshots/cutout-studio-desktop.png)
+
+## Safety model
+
+The intended beta flow is:
+
+1. User signs in with GitHub.
+2. The callback accepts only accounts with a verified GitHub email.
+3. The app creates or updates the user record in Postgres.
+4. The current acceptable-use version must be accepted.
+5. Turnstile runs when configured.
+6. Image moderation runs before background removal.
+7. Only then does the cutout pipeline execute.
+
+Failure is intentionally closed for safety-critical steps:
+
+- no authenticated session
+- blocked or review-required account
+- stale or missing policy acceptance
+- failed Turnstile challenge when enabled
+- moderation provider failure when `MODERATION_FAIL_CLOSED=1`
+- moderation decisions that are blocked or uncertain
+
+The default privacy posture is no image retention:
+
+- raw uploads are processed in memory only
+- output PNGs are returned directly and not persisted
+- audit logs store request identifiers, digests, status codes, and moderation decisions only
+
+## Screens and controls
+
+- `/api/session` exposes whether the user is signed in, whether the current policy is accepted, the user status, whether the session is admin-capable, and whether moderation is active.
+- `/api/remove-background` enforces auth, account state, policy acceptance, Turnstile, moderation, payload validation, and rate limiting.
+- `/api/report-abuse` lets signed-in users submit abuse reports tied to a request ID.
+- `/api/admin/review`, `/api/admin/users/:userId/status`, and `/api/admin/reports/:reportId/review` provide a minimal review surface for admins listed in `ADMIN_EMAILS`.
+- `/api/health` reports process liveness.
+- `/api/readiness` reports dependency readiness for Postgres and moderation.
+
+## Runtime configuration
+
+Copy [.env.example](/Users/tim/Documents/Codex/2026-07-11/building-a-background-removal-tool-you/.env.example:1) to `.env` and set the values required for your environment.
+
+Core variables:
+
+- `SITE_URL`: canonical public base URL used for auth callbacks and production links
+- `DATABASE_URL`: managed Postgres connection string used for users, sessions, policy acceptance, audit events, abuse reports, and moderation decisions
+- `DATABASE_SSL`: set to `1` when your Postgres host requires SSL
+- `SESSION_SECRET`: cookie signing secret
+- `ADMIN_EMAILS`: comma-separated admin allowlist
+- `ACCEPTABLE_USE_VERSION`: policy version that must be accepted before processing
+
+GitHub auth:
+
+- `GITHUB_CLIENT_ID`
+- `GITHUB_CLIENT_SECRET`
+- `GITHUB_CALLBACK_URL`
+
+Human verification:
+
+- `TURNSTILE_SITE_KEY`
+- `TURNSTILE_SECRET_KEY`
+
+Moderation:
+
+- `MODERATION_PROVIDER`
+- `MODERATION_MODEL`
+- `MODERATION_FAIL_CLOSED`
+- `OPENAI_API_KEY`
+
+Current implementation notes:
+
+- the moderation abstraction is provider-driven, but this repo currently implements `openai` and `disabled`
+- the session store falls back to in-memory mode only when `DATABASE_URL` is absent; production beta deployment should always provide Postgres
+
+## Local development
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-## Web app
-
-Run the API and TypeScript frontend together:
+Run the API and frontend together:
 
 ```bash
 npm run dev
 ```
 
-The frontend runs on `http://127.0.0.1:5173` and proxies API requests to `http://127.0.0.1:3001`.
-
-Build the client:
+Build the product:
 
 ```bash
 npm run build
 ```
 
-Serve the built app with the API:
+Serve the built client through the API:
 
 ```bash
 npm run start
 ```
 
-Health check:
+Run the test suite:
 
 ```bash
-curl http://127.0.0.1:3001/api/health
+npm test
 ```
 
-### Environment
+Security audit:
 
-Copy [.env.example](/Users/tim/Documents/Codex/2026-07-11/building-a-background-removal-tool-you/.env.example:1) into `.env` and adjust as needed.
-
-Important settings:
-
-- `HOST`: host interface for the API server, default `127.0.0.1`
-- `MAX_UPLOAD_MB`: maximum upload size accepted by the API
-- `MAX_IMAGE_PIXELS`: pixel ceiling for decoded images
-- `RATE_LIMIT_WINDOW_MINUTES`: rate-limit time window
-- `RATE_LIMIT_MAX_REQUESTS`: allowed requests per IP during that window
-- `SESSION_SECRET`: cookie/session signing secret
-- `SESSION_TTL_DAYS`: how long a signed-in session can persist
-- `ACCEPTABLE_USE_VERSION`: policy version users must accept before processing
-- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_CALLBACK_URL`: when all are set with `SESSION_SECRET`, sign-in is enforced before image processing
-- `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY`: when both are set, Turnstile verification is also required
-
-## Access model
-
-For a public free deployment, the intended flow is:
-
-1. User signs in with GitHub.
-2. The callback only accepts accounts with a verified email.
-3. The user accepts the current usage-policy version in-session.
-4. The server enforces rate limits, payload limits, MIME checks, image-size checks, and optional Turnstile before processing.
-
-This is a practical anti-abuse baseline, not a full moderation pipeline. If you want stronger controls against illegal or exploitative uploads, the next layer should be content moderation and operator review, which is not implemented yet.
+```bash
+npm audit
+```
 
 ## CLI usage
 
@@ -86,29 +130,55 @@ Single image:
 node ./src/cli.js image --input ./photos/person.jpg
 ```
 
-Write to a specific file:
-
-```bash
-node ./src/cli.js image --input ./photos/person.jpg --output ./exports/person.png
-```
-
 Batch a directory:
 
 ```bash
 node ./src/cli.js batch --input ./photos --output ./exports --recursive
 ```
 
-## Notes
+Notes:
 
-- Output is always PNG because transparency is required.
-- The segmentation backend is tuned for person photos. Non-person images can fail or produce weak masks.
-- The CLI processes images locally on the machine running the command.
-- The web surface processes uploads on the server hosting the app, so its privacy model is different from the standalone CLI.
-- The current web session store uses the default in-memory store. That is acceptable for local use or a small single-instance deployment, but a production multi-instance deployment should move sessions into a shared store.
-- The segmentation runtime is vendored under `vendor/background-removal/` to remove the vulnerable upstream wrapper package from the shipped dependency tree while preserving local inference.
+- output is always PNG because transparency is required
+- the segmentation backend is tuned for person photos and may underperform on non-person images
+- batch mode continues through failures so one bad file does not abort the whole directory run
 
-## Tests
+## Data model
 
-```bash
-npm test
-```
+The production data store is keyed by `DATABASE_URL` and includes:
+
+- `users`
+- `policy_acceptances`
+- `audit_events`
+- `abuse_reports`
+- `moderation_decisions`
+- Postgres-backed session rows via `connect-pg-simple`
+
+## Deployment
+
+This repo is wired for Sites with [.openai/hosting.json](/Users/tim/Documents/Codex/2026-07-11/building-a-background-removal-tool-you/.openai/hosting.json:1).
+
+Planned public deployment title and slug:
+
+- Title: `Cutout Studio`
+- Preferred slug: `cutout-studio`
+
+Before a real public beta launch, set production environment variables for:
+
+- GitHub OAuth
+- managed Postgres
+- moderation provider credentials
+- Turnstile
+- `SITE_URL` set to the final deployed URL
+
+Without those values, the site can render but it will not satisfy the strict verified beta flow described above.
+
+## Tests added for this hardening pass
+
+- config validation for durable auth requirements
+- anonymous, blocked, and stale-policy processing rejections
+- moderation fail-closed behavior
+- moderation block logging
+- successful processing audit logging
+- abuse report creation
+- readiness degradation reporting
+- admin account review actions

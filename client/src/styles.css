@@ -35,13 +35,23 @@ body {
 
 button,
 input,
-a {
+a,
+textarea {
   font: inherit;
 }
 
 button {
   border: 0;
   cursor: pointer;
+}
+
+input,
+textarea {
+  border: 1px solid rgba(23, 58, 44, 0.16);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  padding: 12px 14px;
 }
 
 a {
@@ -422,6 +432,46 @@ h1 {
   font-size: 0.95rem;
 }
 
+.request-id {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.report-grid,
+.admin-grid,
+.admin-actions,
+.admin-column,
+.admin-card {
+  display: grid;
+  gap: 14px;
+}
+
+.report-grid {
+  margin-top: 18px;
+}
+
+.report-grid label,
+.admin-column {
+  align-content: start;
+}
+
+.admin-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 18px;
+}
+
+.admin-card {
+  padding: 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(23, 58, 44, 0.1);
+  background: rgba(255, 255, 255, 0.58);
+}
+
+.admin-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .error-banner {
   margin: 14px 0 0;
   padding: 14px 16px;
@@ -466,6 +516,10 @@ h1 {
   .result-panel,
   .upload-panel {
     grid-column: auto;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
   }
 }
 
