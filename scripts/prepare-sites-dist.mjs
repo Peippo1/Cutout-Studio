@@ -41,7 +41,7 @@ function json(payload, init = {}) {
 }
 
 function requestId() {
-  return crypto.randomUUID();
+  return globalThis.crypto?.randomUUID?.() ?? \`req_\${Date.now()}_\${Math.random().toString(16).slice(2)}\`;
 }
 
 function failClosed(message, reasonCode, status = 503) {
@@ -61,8 +61,7 @@ function failClosed(message, reasonCode, status = 503) {
   );
 }
 
-export default {
-  async fetch(request) {
+export async function fetch(request) {
     const url = new URL(request.url);
 
     if (url.pathname === "/api/health") {
@@ -149,8 +148,9 @@ export default {
         "cache-control": "no-store",
       },
     });
-  },
-};
+}
+
+export default { fetch };
 `;
 
 await writeFile(path.join(serverDir, "index.js"), runtime);
