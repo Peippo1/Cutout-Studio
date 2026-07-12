@@ -1,5 +1,6 @@
 import path from "node:path";
 import crypto from "node:crypto";
+import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import express from "express";
 import session from "express-session";
@@ -29,10 +30,17 @@ const SUPPORTED_MIME_TYPES = new Set([
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
 const projectRoot = path.resolve(currentDir, "..");
-const builtClientDir = path.join(projectRoot, "dist");
+const builtClientDir = getBuiltClientDir();
 
-function isBuiltClientAvailable() {
-  return builtClientDir;
+function getBuiltClientDir() {
+  const colocatedClientDir = projectRoot;
+  const localClientDir = path.join(projectRoot, "dist");
+
+  if (existsSync(path.join(colocatedClientDir, "index.html"))) {
+    return colocatedClientDir;
+  }
+
+  return localClientDir;
 }
 
 export function isSupportedMimeType(mimeType) {
@@ -671,7 +679,7 @@ export async function createApp({
     next();
   });
 
-  app.use(express.static(isBuiltClientAvailable()));
+  app.use(express.static(builtClientDir));
 
   app.get("*", (_request, response) => {
     response.sendFile(path.join(builtClientDir, "index.html"));

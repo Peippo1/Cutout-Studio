@@ -7,7 +7,7 @@
     "remove-background": "./src/cli.js"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/prepare-sites-dist.mjs",
     "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
