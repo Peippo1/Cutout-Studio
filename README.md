@@ -167,10 +167,11 @@ The production data store is keyed by `DATABASE_URL` and includes:
 
 This repo is wired for Sites with [.openai/hosting.json](/Users/tim/Documents/Codex/2026-07-11/building-a-background-removal-tool-you/.openai/hosting.json:1).
 
-Planned public deployment title and slug:
+Public deployment:
 
 - Title: `Cutout Studio`
-- Preferred slug: `cutout-studio`
+- URL: `https://cutout-studio.tim-o-finch.chatgpt.site`
+- Slug: `cutout-studio`
 
 Before a real public beta launch, set production environment variables for:
 
