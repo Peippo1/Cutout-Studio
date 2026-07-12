@@ -1,7 +1,7 @@
 {
-  "name": "background-removal-tool",
+  "name": "cutout-studio",
   "version": "0.1.0",
-  "description": "Portrait background removal with CLI and a lightweight TypeScript web app.",
+  "description": "Cutout Studio: portrait background removal with a lightweight TypeScript web app and safety controls.",
   "type": "module",
   "bin": {
     "remove-background": "./src/cli.js"
