@@ -93,6 +93,12 @@ export function validateServerConfig(runtimeConfig = config) {
     );
   }
 
+  if (hasAllGitHubAuthSettings && !runtimeConfig.moderationFailClosed) {
+    throw new Error(
+      "MODERATION_FAIL_CLOSED=1 is required for the verified beta flow when GitHub login is enabled.",
+    );
+  }
+
   if (runtimeConfig.moderationProvider === "openai" && !runtimeConfig.openAiApiKey) {
     throw new Error("OPENAI_API_KEY is required when MODERATION_PROVIDER=openai.");
   }
