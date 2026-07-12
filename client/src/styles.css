@@ -27,6 +27,7 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
   min-height: 100vh;
   background:
     radial-gradient(circle at top left, rgba(217, 138, 99, 0.14), transparent 28%),
@@ -65,9 +66,11 @@ a {
 
 .shell {
   padding: 28px;
+  width: 100%;
 }
 
 .hero {
+  width: 100%;
   max-width: 1440px;
   margin: 0 auto;
   padding: 28px 30px 34px;
@@ -77,6 +80,7 @@ a {
     linear-gradient(180deg, rgba(255, 252, 247, 0.94), rgba(251, 244, 235, 0.9)),
     var(--paper-strong);
   box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
 .brand-row,
@@ -142,10 +146,12 @@ h2,
   gap: 28px;
   margin-top: 28px;
   align-items: stretch;
+  min-width: 0;
 }
 
 .intro-card {
   width: min(38%, 480px);
+  min-width: 0;
   padding: 22px 8px 12px 4px;
 }
 
@@ -161,9 +167,9 @@ h2,
 
 h1 {
   margin: 0;
-  font-size: clamp(3.8rem, 6vw, 5.7rem);
+  font-size: 5.2rem;
   line-height: 0.92;
-  letter-spacing: -0.04em;
+  letter-spacing: 0;
   max-width: 8ch;
 }
 
@@ -191,7 +197,7 @@ h1 {
   margin: 0;
   font-size: 2rem;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: 0;
   font-weight: 600;
 }
 
@@ -201,6 +207,7 @@ h1 {
 }
 
 .workbench {
+  min-width: 0;
   flex: 1;
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.9fr);
@@ -211,6 +218,7 @@ h1 {
 .upload-panel,
 .limits-card,
 .result-panel {
+  min-width: 0;
   background: var(--surface);
   border: 1px solid var(--surface-line);
   border-radius: 26px;
@@ -412,6 +420,16 @@ h1 {
   display: block;
 }
 
+.lede,
+.signal-list p,
+.placeholder-copy,
+.status-copy,
+.request-id,
+.report-grid,
+.admin-card {
+  overflow-wrap: anywhere;
+}
+
 .empty-preview {
   width: min(88%, 520px);
   padding: 32px;
@@ -490,6 +508,10 @@ h1 {
     width: 100%;
     max-width: none;
   }
+
+  h1 {
+    font-size: 4.6rem;
+  }
 }
 
 @media (max-width: 920px) {
@@ -524,6 +546,33 @@ h1 {
 }
 
 @media (max-width: 640px) {
+  .shell {
+    padding: 0;
+  }
+
+  .hero {
+    min-height: 100vh;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+  }
+
+  .brand-lockup {
+    flex-wrap: wrap;
+  }
+
+  .brand-wordmark {
+    font-size: 2.45rem;
+  }
+
+  .brand-mark {
+    font-size: 1.35rem;
+  }
+
+  .brand-note {
+    font-size: 0.95rem;
+  }
+
   h1 {
     max-width: 10ch;
     font-size: 3.3rem;
@@ -531,6 +580,7 @@ h1 {
 
   .dropzone {
     min-height: 240px;
+    padding: 22px 16px;
   }
 
   .dropzone strong,
@@ -551,6 +601,7 @@ h1 {
   }
 
   .actions button {
+    min-width: 0;
     width: 100%;
   }
 

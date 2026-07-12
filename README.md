@@ -12,6 +12,8 @@ It ships with:
 
 ![Cutout Studio desktop screenshot](docs/screenshots/cutout-studio-desktop.png)
 
+![Cutout Studio mobile screenshot](docs/screenshots/cutout-studio-mobile.png)
+
 ## Safety model
 
 The intended beta flow is:
