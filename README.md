@@ -62,6 +62,7 @@ Core variables:
 - `SESSION_SECRET`: cookie signing secret
 - `ADMIN_EMAILS`: comma-separated admin allowlist
 - `ACCEPTABLE_USE_VERSION`: policy version that must be accepted before processing
+- `SEGMENTATION_MODEL`: local segmentation model size; this beta defaults to `small` to keep deployment payloads practical
 
 GitHub auth:
 
@@ -85,6 +86,7 @@ Current implementation notes:
 
 - the moderation abstraction is provider-driven, but this repo currently implements `openai` and `disabled`
 - the session store falls back to in-memory mode only when `DATABASE_URL` is absent; production beta deployment should always provide Postgres
+- only the small local segmentation model is vendored; larger model variants should be added through a dedicated artifact path before enabling them
 
 ## Local development
 

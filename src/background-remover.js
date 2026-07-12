@@ -4,6 +4,7 @@ import sharp from "sharp";
 import { collectImageFiles, toOutputPngPath } from "./file-utils.js";
 
 const DEFAULT_EDGE_BLUR = 0.8;
+const DEFAULT_SEGMENTATION_MODEL = process.env.SEGMENTATION_MODEL || "small";
 
 function combineRgbAndAlpha(rgbBuffer, alphaBuffer) {
   if (rgbBuffer.length / 3 !== alphaBuffer.length) {
@@ -51,6 +52,7 @@ export async function loadSegmenter() {
 
   return async function segmentPerson(inputBuffer) {
     const result = await removeBackground(inputBuffer, {
+      model: DEFAULT_SEGMENTATION_MODEL,
       output: {
         format: "image/png",
       },
