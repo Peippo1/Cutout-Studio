@@ -23,6 +23,7 @@ type SessionState = {
   acceptableUseVersion: string;
   isAdmin: boolean;
   moderationActive: boolean;
+  csrfToken: string | null;
   userStatus: UserStatus | null;
   user: {
     id: string;
@@ -256,6 +257,7 @@ export function App() {
   const isSitesShell = config?.deploymentMode === "sites-shell";
   const isSignedIn = Boolean(session?.signedIn);
   const policyAccepted = Boolean(session?.policyAccepted);
+  const csrfToken = session?.csrfToken ?? "";
   const isBlocked = session?.userStatus === "blocked";
   const isReviewRequired = session?.userStatus === "review_required";
   const { containerRef, token, reset } = useTurnstile(
@@ -330,6 +332,7 @@ export function App() {
     try {
       const response = await fetch("/api/remove-background", {
         method: "POST",
+        headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
         body,
       });
       const requestId = response.headers.get("x-request-id") ?? "";
@@ -376,6 +379,7 @@ export function App() {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({ accepted: true }),
       });
@@ -394,6 +398,7 @@ export function App() {
   const logout = async () => {
     await fetch("/auth/logout", {
       method: "POST",
+      headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
     });
 
     setAdminQueue(null);
@@ -404,6 +409,7 @@ export function App() {
             signedIn: false,
             policyAccepted: false,
             isAdmin: false,
+            csrfToken: null,
             userStatus: null,
             user: null,
           }
@@ -419,6 +425,7 @@ export function App() {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
         },
         body: JSON.stringify({
           targetRequestId: reportTargetId,
@@ -449,6 +456,7 @@ export function App() {
       method: "POST",
       headers: {
         "content-type": "application/json",
+        ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
       },
       body: JSON.stringify({ action }),
     });
@@ -465,6 +473,7 @@ export function App() {
   const markReportReviewed = async (reportId: string) => {
     const response = await fetch(`/api/admin/reports/${reportId}/review`, {
       method: "POST",
+      headers: csrfToken ? { "x-csrf-token": csrfToken } : undefined,
     });
 
     if (!response.ok) {

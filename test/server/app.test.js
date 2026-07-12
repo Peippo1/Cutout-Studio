@@ -178,10 +178,18 @@ function createSignedInMiddleware({
     status: "active",
   },
   acceptedPolicyVersion = "2026-07-12",
+  includeCsrf = true,
 } = {}) {
   return async (request, _response, next) => {
+    request.headers ??= {};
     request.user = user;
     request.session.acceptedPolicyVersion = acceptedPolicyVersion;
+    request.session.csrfToken = "csrf_test";
+
+    if (includeCsrf) {
+      request.headers["x-csrf-token"] = "csrf_test";
+    }
+
     next();
   };
 }
@@ -387,6 +395,29 @@ test("stale policy acceptance is rejected", async () => {
     });
     assert.equal(response.statusCode, 403);
     assert.match(response.body.error, /Accept the usage policy/);
+  } finally {
+    await harness.close();
+  }
+});
+
+test("signed-in processing rejects missing csrf tokens", async () => {
+  const harness = await startApp({
+    requestMiddleware: [createSignedInMiddleware({ includeCsrf: false })],
+    configOverrides: {
+      acceptableUseVersion: "2026-07-12",
+    },
+  });
+
+  try {
+    const response = await invokeHandler(harness, "removeBackgroundHandler", {
+      file: {
+        buffer: TINY_PNG,
+        originalname: "portrait.png",
+        mimetype: "image/png",
+      },
+    });
+    assert.equal(response.statusCode, 403);
+    assert.match(response.body.error, /verification failed/);
   } finally {
     await harness.close();
   }

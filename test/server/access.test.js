@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  assertCsrfToken,
   assertProcessingAccess,
   buildSessionSnapshot,
   isAuthEnabled,
@@ -37,11 +38,33 @@ test("buildSessionSnapshot returns user-safe session state", () => {
     },
     acceptedPolicyVersion: "2026-07-11",
     policyVersion: "2026-07-11",
+    csrfToken: "csrf_test",
   });
 
   assert.equal(snapshot.signedIn, true);
   assert.equal(snapshot.policyAccepted, true);
+  assert.equal(snapshot.csrfToken, "csrf_test");
   assert.equal(snapshot.user?.email, "tim@example.com");
+});
+
+test("assertCsrfToken rejects missing or mismatched tokens when enabled", () => {
+  assert.throws(
+    () =>
+      assertCsrfToken({
+        enabled: true,
+        expectedToken: "csrf_test",
+        providedToken: "",
+      }),
+    /verification failed/,
+  );
+
+  assert.doesNotThrow(() =>
+    assertCsrfToken({
+      enabled: true,
+      expectedToken: "csrf_test",
+      providedToken: "csrf_test",
+    }),
+  );
 });
 
 test("assertProcessingAccess rejects anonymous use when auth is enabled", () => {

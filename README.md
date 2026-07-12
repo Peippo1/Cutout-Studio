@@ -44,7 +44,7 @@ The default privacy posture is no image retention:
 ## Screens and controls
 
 - `/api/session` exposes whether the user is signed in, whether the current policy is accepted, the user status, whether the session is admin-capable, and whether moderation is active.
-- `/api/remove-background` enforces auth, account state, policy acceptance, Turnstile, moderation, payload validation, and rate limiting.
+- `/api/remove-background` enforces auth, CSRF verification, account state, policy acceptance, Turnstile, moderation, payload validation, and rate limiting.
 - `/api/report-abuse` lets signed-in users submit abuse reports tied to a request ID.
 - `/api/admin/review`, `/api/admin/users/:userId/status`, and `/api/admin/reports/:reportId/review` provide a minimal review surface for admins listed in `ADMIN_EMAILS`.
 - `/api/health` reports process liveness.
@@ -209,6 +209,7 @@ Recommended production launch sequence:
 ## Tests added for this hardening pass
 
 - config validation for durable auth requirements
+- CSRF token checks for signed-in write requests
 - anonymous, blocked, and stale-policy processing rejections
 - moderation fail-closed behavior
 - moderation block logging

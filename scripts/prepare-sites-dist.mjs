@@ -110,6 +110,7 @@ export async function fetch(request) {
         acceptableUseVersion: "2026-07-11",
         isAdmin: false,
         moderationActive: false,
+        csrfToken: null,
         userStatus: null,
         user: null,
       });

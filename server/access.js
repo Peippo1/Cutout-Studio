@@ -22,6 +22,7 @@ export function buildSessionSnapshot({
   policyVersion,
   adminEmails = [],
   moderationActive = false,
+  csrfToken = null,
 }) {
   return {
     authEnabled,
@@ -31,6 +32,7 @@ export function buildSessionSnapshot({
     acceptableUseVersion: policyVersion,
     isAdmin: isAdminEmail(user?.email, adminEmails),
     moderationActive,
+    csrfToken,
     user: user
       ? {
           id: user.id,
@@ -62,5 +64,15 @@ export function assertProcessingAccess({ authEnabled, user, acceptedPolicyVersio
 
   if (acceptedPolicyVersion !== policyVersion) {
     throw new Error("Accept the usage policy before processing images.");
+  }
+}
+
+export function assertCsrfToken({ enabled, expectedToken, providedToken }) {
+  if (!enabled) {
+    return;
+  }
+
+  if (!expectedToken || !providedToken || providedToken !== expectedToken) {
+    throw new Error("Request verification failed. Refresh the page and try again.");
   }
 }

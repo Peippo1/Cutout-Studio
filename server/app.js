@@ -10,7 +10,13 @@ import rateLimit from "express-rate-limit";
 import sharp from "sharp";
 import { createBackgroundRemover, loadSegmenter } from "../src/background-remover.js";
 import { config } from "./config.js";
-import { assertProcessingAccess, buildSessionSnapshot, isAdminEmail, isAuthEnabled } from "./access.js";
+import {
+  assertCsrfToken,
+  assertProcessingAccess,
+  buildSessionSnapshot,
+  isAdminEmail,
+  isAuthEnabled,
+} from "./access.js";
 import { configurePassport } from "./auth.js";
 import { createDataStore } from "./data-store.js";
 import { HttpError, isHttpError } from "./errors.js";
@@ -158,6 +164,34 @@ export async function createApp({
     });
   }
 
+  function getOrCreateCsrfToken(request) {
+    if (!request.session) {
+      return null;
+    }
+
+    if (!request.session.csrfToken) {
+      request.session.csrfToken = crypto.randomBytes(32).toString("base64url");
+    }
+
+    return request.session.csrfToken;
+  }
+
+  function verifyCsrf(request) {
+    try {
+      assertCsrfToken({
+        enabled: authEnabled,
+        expectedToken: request.session?.csrfToken,
+        providedToken: request.get("x-csrf-token") || request.body?._csrf,
+      });
+    } catch (error) {
+      throw new HttpError(
+        403,
+        error instanceof Error ? error.message : "Request verification failed.",
+        { reasonCode: "csrf_failed" },
+      );
+    }
+  }
+
   const healthHandler = (_request, response) => {
     response.json({
       ok: true,
@@ -241,6 +275,13 @@ export async function createApp({
     );
 
     app.post("/auth/logout", (request, response, next) => {
+      try {
+        verifyCsrf(request);
+      } catch (error) {
+        next(error);
+        return;
+      }
+
       request.logout((error) => {
         if (error) {
           next(error);
@@ -301,6 +342,7 @@ export async function createApp({
           policyVersion: effectiveConfig.acceptableUseVersion,
           adminEmails: effectiveConfig.adminEmails,
           moderationActive: moderationService.isActive(),
+          csrfToken: getOrCreateCsrfToken(request),
         }),
       );
     } catch (error) {
@@ -318,6 +360,8 @@ export async function createApp({
             reasonCode: "auth_required",
           });
         }
+
+        verifyCsrf(request);
 
         request.session.acceptedPolicyVersion = effectiveConfig.acceptableUseVersion;
 
@@ -339,6 +383,7 @@ export async function createApp({
           policyVersion: effectiveConfig.acceptableUseVersion,
           adminEmails: effectiveConfig.adminEmails,
           moderationActive: moderationService.isActive(),
+          csrfToken: getOrCreateCsrfToken(request),
         });
       })(),
     );
@@ -366,6 +411,7 @@ export async function createApp({
           acceptedPolicyVersion,
           policyVersion: effectiveConfig.acceptableUseVersion,
         });
+        verifyCsrf(request);
 
         const verification = await verifyTurnstileToken({
           secretKey: effectiveConfig.turnstileSecretKey,
@@ -501,7 +547,7 @@ export async function createApp({
       } catch (error) {
         const statusCode = isHttpError(error)
           ? error.statusCode
-          : /Sign in|Accept the usage policy|blocked|manual review/.test(
+          : /Sign in|Accept the usage policy|blocked|manual review|verification failed/.test(
                 error instanceof Error ? error.message : "",
               )
             ? 403
@@ -527,6 +573,8 @@ export async function createApp({
           reasonCode: "auth_required",
         });
       }
+
+      verifyCsrf(request);
 
       const targetRequestId =
         typeof request.body?.targetRequestId === "string" ? request.body.targetRequestId.trim() : "";
@@ -582,6 +630,8 @@ export async function createApp({
 
   const adminUpdateUserStatusHandler = async (request, response, next) => {
     try {
+      verifyCsrf(request);
+
       const action = request.body?.action;
       const nextStatus =
         action === "block_user"
@@ -620,6 +670,8 @@ export async function createApp({
 
   const adminReviewReportHandler = async (request, response, next) => {
     try {
+      verifyCsrf(request);
+
       const report = await dataStore.markAbuseReportReviewed({
         reportId: request.params.reportId,
       });
