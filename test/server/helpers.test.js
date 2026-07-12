@@ -10,6 +10,8 @@ test("createPublicConfig exposes non-secret runtime settings", () => {
   assert.equal(typeof publicConfig.maxUploadMb, "number");
   assert.equal(typeof publicConfig.rateLimitMaxRequests, "number");
   assert.equal(typeof publicConfig.acceptableUseVersion, "string");
+  assert.equal(publicConfig.processingEnabled, true);
+  assert.equal(publicConfig.deploymentMode, "node");
   assert.equal("turnstileSecretKey" in publicConfig, false);
 });
 

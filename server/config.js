@@ -108,6 +108,8 @@ export function createPublicConfig(runtimeConfig = config) {
     ),
     verificationEnabled: Boolean(runtimeConfig.turnstileSiteKey && runtimeConfig.turnstileSecretKey),
     moderationActive: runtimeConfig.moderationProvider !== "disabled",
+    processingEnabled: true,
+    deploymentMode: "node",
     turnstileSiteKey: runtimeConfig.turnstileSiteKey || null,
     maxUploadMb: runtimeConfig.maxUploadMb,
     maxImagePixels: runtimeConfig.maxImagePixels,

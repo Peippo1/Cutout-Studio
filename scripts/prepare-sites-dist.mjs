@@ -91,6 +91,8 @@ export async function fetch(request) {
         authEnabled: true,
         verificationEnabled: false,
         moderationActive: false,
+        processingEnabled: false,
+        deploymentMode: "sites-shell",
         turnstileSiteKey: null,
         maxUploadMb: 10,
         maxImagePixels: 25000000,

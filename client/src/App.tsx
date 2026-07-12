@@ -4,6 +4,8 @@ type AppConfig = {
   authEnabled: boolean;
   verificationEnabled: boolean;
   moderationActive: boolean;
+  processingEnabled?: boolean;
+  deploymentMode?: "node" | "sites-shell";
   turnstileSiteKey: string | null;
   maxUploadMb: number;
   maxImagePixels: number;
@@ -250,6 +252,8 @@ export function App() {
 
   const verificationEnabled = Boolean(config?.verificationEnabled);
   const authEnabled = Boolean(config?.authEnabled);
+  const processingEnabled = config?.processingEnabled ?? true;
+  const isSitesShell = config?.deploymentMode === "sites-shell";
   const isSignedIn = Boolean(session?.signedIn);
   const policyAccepted = Boolean(session?.policyAccepted);
   const isBlocked = session?.userStatus === "blocked";
@@ -277,6 +281,13 @@ export function App() {
 
     if (!selectedFile) {
       setErrorMessage("Choose an image before processing.");
+      return;
+    }
+
+    if (!processingEnabled) {
+      setErrorMessage(
+        "Processing is disabled until the production safety services are configured.",
+      );
       return;
     }
 
@@ -529,14 +540,29 @@ export function App() {
                     ? "Account blocked"
                     : isReviewRequired
                       ? "Manual review"
-                      : authEnabled
+                      : !processingEnabled
+                        ? "Closed beta"
+                        : authEnabled
                         ? "Verified beta"
                         : "Local mode"}
                 </span>
               </div>
 
               <form id={formId} className="upload-form" onSubmit={onSubmit}>
-                {config && authEnabled && !isSignedIn ? (
+                {isSitesShell ? (
+                  <div className="gate-card gate-card-policy">
+                    <div className="turnstile-copy">
+                      <strong>Public preview is live</strong>
+                      <span>
+                        Processing is disabled until GitHub OAuth, Postgres audit logging,
+                        moderation, and Turnstile are configured for production. The service fails
+                        closed rather than accepting uploads without those safeguards.
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
+                {config && !isSitesShell && authEnabled && !isSignedIn ? (
                   <div className="gate-card">
                     <div className="turnstile-copy">
                       <strong>Sign in before upload</strong>
@@ -618,9 +644,17 @@ export function App() {
                 ) : (
                   <div className="turnstile-block turnstile-passive">
                     <div className="turnstile-copy">
-                      <strong>{authEnabled ? "Verification layer" : "Verification"}</strong>
+                      <strong>
+                        {!processingEnabled
+                          ? "Safety services pending"
+                          : authEnabled
+                            ? "Verification layer"
+                            : "Verification"}
+                      </strong>
                       <span>
-                        {config
+                        {isSitesShell
+                          ? "Turnstile, moderation, and durable logging must be configured before uploads are accepted."
+                          : config
                           ? "Turnstile is disabled in this environment. Add site and secret keys to enforce it."
                           : "Loading verification policy..."}
                       </span>
@@ -634,19 +668,26 @@ export function App() {
                     disabled={
                       status === "loading" ||
                       Boolean(configError) ||
+                      !processingEnabled ||
                       (authEnabled && !isSignedIn) ||
                       !policyAccepted ||
                       isBlocked ||
                       isReviewRequired
                     }
                   >
-                    {status === "loading" ? "Removing background..." : "Choose and process"}
+                    {!processingEnabled
+                      ? "Processing disabled"
+                      : status === "loading"
+                        ? "Removing background..."
+                        : "Choose and process"}
                   </button>
                   <span className="status-copy">
                     {status === "success"
                       ? "Transparent PNG ready."
                       : status === "loading"
                         ? "Running moderation and cutout..."
+                        : !processingEnabled
+                          ? "Production safety services are not configured yet."
                         : authEnabled && !isSignedIn
                           ? "Sign in with GitHub to unlock processing."
                           : isBlocked
@@ -693,7 +734,13 @@ export function App() {
                   </div>
                   <div>
                     <dt>Moderation</dt>
-                    <dd>{config.moderationActive ? "Active before processing" : "Disabled here"}</dd>
+                    <dd>
+                      {!config.processingEnabled
+                        ? "Required before launch"
+                        : config.moderationActive
+                          ? "Active before processing"
+                          : "Disabled here"}
+                    </dd>
                   </div>
                   <div>
                     <dt>Policy</dt>
