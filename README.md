@@ -138,6 +138,9 @@ Security audit:
 npm audit
 ```
 
+GitHub Actions runs `npm ci`, `npm test`, `npm run build`, and `npm audit --audit-level=moderate`
+on pushes to `main` and pull requests.
+
 ## CLI usage
 
 Single image:
