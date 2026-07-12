@@ -43,6 +43,7 @@ The default privacy posture is no image retention:
 
 ## Screens and controls
 
+- `/terms` presents the user-facing Terms of Use, including permitted use, prohibited use, safety review, account enforcement, no-retention posture, and beta availability.
 - `/api/session` exposes whether the user is signed in, whether the current policy is accepted, the user status, whether the session is admin-capable, and whether moderation is active.
 - `/api/remove-background` enforces auth, CSRF verification, account state, policy acceptance, Turnstile, moderation, payload validation, and rate limiting.
 - `/api/report-abuse` lets signed-in users submit abuse reports tied to a request ID.

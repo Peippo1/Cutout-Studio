@@ -60,6 +60,14 @@ a {
   text-decoration: none;
 }
 
+.inline-link {
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(24, 74, 52, 0.35);
+  text-underline-offset: 3px;
+}
+
 #root {
   min-height: 100vh;
 }
@@ -204,6 +212,37 @@ h1 {
 .signal-list p {
   margin: 10px 0 0;
   max-width: 30rem;
+}
+
+.terms-page {
+  max-width: 1120px;
+}
+
+.terms-card {
+  margin-top: 42px;
+}
+
+.terms-card h1 {
+  max-width: 10ch;
+}
+
+.terms-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 34px;
+}
+
+.terms-grid section {
+  padding: 22px;
+  border: 1px solid var(--surface-line);
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.terms-grid p {
+  margin: 10px 0 0;
+  color: var(--muted);
 }
 
 .workbench {
@@ -541,6 +580,10 @@ h1 {
   }
 
   .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .terms-grid {
     grid-template-columns: 1fr;
   }
 }

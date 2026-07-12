@@ -161,7 +161,87 @@ function formatTimestamp(value: string) {
   return new Date(value).toLocaleString();
 }
 
+function TermsPage() {
+  return (
+    <main className="shell">
+      <section className="hero terms-page">
+        <div className="brand-row">
+          <div className="brand-lockup">
+            <span className="brand-wordmark">Cutout</span>
+            <span className="brand-mark">studio</span>
+          </div>
+          <a className="secondary-button" href="/">
+            Back to tool
+          </a>
+        </div>
+
+        <article className="terms-card">
+          <p className="eyebrow">Terms of Use</p>
+          <h1>Use the tool for permitted images only.</h1>
+          <p className="lede">
+            Cutout Studio is a free beta for background removal with accountable access. By using
+            the tool, you agree to these terms and the current acceptable-use policy.
+          </p>
+
+          <div className="terms-grid">
+            <section>
+              <h2>Permitted use</h2>
+              <p>
+                Only upload images you own, created, licensed, or are otherwise permitted to edit.
+                Do not upload private, sensitive, or third-party images without permission.
+              </p>
+            </section>
+
+            <section>
+              <h2>Prohibited use</h2>
+              <p>
+                Do not use Cutout Studio for illegal, exploitative, abusive, harassing, sexualized
+                minor, graphic violence, self-harm, non-consensual, or otherwise unsafe content.
+              </p>
+            </section>
+
+            <section>
+              <h2>Safety review</h2>
+              <p>
+                Uploads may be screened before processing. Disallowed, borderline, or uncertain
+                requests can be blocked or placed into manual review before any background removal
+                runs.
+              </p>
+            </section>
+
+            <section>
+              <h2>Account enforcement</h2>
+              <p>
+                Usage is logged with request identifiers and minimal metadata. Abuse reports are
+                reviewable, and accounts can be blocked or placed into manual review when activity
+                violates these terms.
+              </p>
+            </section>
+
+            <section>
+              <h2>No image retention by default</h2>
+              <p>
+                Raw uploads and output PNGs are not stored by default. Audit records keep metadata,
+                decision codes, timestamps, and request identifiers needed for safety operations.
+              </p>
+            </section>
+
+            <section>
+              <h2>Beta availability</h2>
+              <p>
+                The service may reject processing when authentication, moderation, verification, or
+                logging dependencies are unavailable. Safety-critical failures fail closed.
+              </p>
+            </section>
+          </div>
+        </article>
+      </section>
+    </main>
+  );
+}
+
 export function App() {
+  const isTermsPage = window.location.pathname === "/terms";
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [session, setSession] = useState<SessionState | null>(null);
   const [adminQueue, setAdminQueue] = useState<AdminQueue | null>(null);
@@ -484,6 +564,10 @@ export function App() {
     await loadAdminQueue();
   };
 
+  if (isTermsPage) {
+    return <TermsPage />;
+  }
+
   return (
     <main className="shell">
       <section className="hero">
@@ -528,10 +612,13 @@ export function App() {
                 </p>
               </article>
               <article>
-                <h2>Abuse has consequences</h2>
+                <h2>Terms before processing</h2>
                 <p>
-                  Usage is logged, reports are reviewable, and accounts can be blocked or placed
-                  into manual review when activity crosses the line.
+                  Clear acceptable-use rules are part of the flow. Review the{" "}
+                  <a className="inline-link" href="/terms">
+                    Terms of Use
+                  </a>{" "}
+                  before uploading anything.
                 </p>
               </article>
             </div>
@@ -593,8 +680,11 @@ export function App() {
                       <span>
                         You must confirm that you own the image or are permitted to edit it, that
                         you will not use the tool for illegal, exploitative, or abusive content,
-                        and that usage is logged with request identifiers. Policy version:{" "}
-                        {config?.acceptableUseVersion}
+                        and that you accept the{" "}
+                        <a className="inline-link" href="/terms">
+                          Terms of Use
+                        </a>
+                        . Policy version: {config?.acceptableUseVersion}
                       </span>
                     </div>
                     <button className="secondary-button" onClick={acceptPolicy} type="button">
