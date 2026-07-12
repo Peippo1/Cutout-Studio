@@ -14,7 +14,8 @@
     "db:prepare": "node scripts/prepare-database.mjs",
     "deploy:preflight": "node scripts/deploy-preflight.mjs",
     "start": "node server/index.js",
-    "test": "node --test"
+    "test": "node --test",
+    "verify:sites": "node scripts/verify-sites-runtime.mjs"
   },
   "engines": {
     "node": ">=22"

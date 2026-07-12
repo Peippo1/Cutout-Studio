@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import session from "express-session";
-import { createApp } from "../../server/app.js";
+import { createApp, createSecurityHeaders } from "../../server/app.js";
 
 const TINY_PNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==",
@@ -300,6 +300,21 @@ test("validate startup config rejects auth without database and moderation setti
       }),
     /DATABASE_URL/,
   );
+});
+
+test("security header policy includes baseline browser protections", () => {
+  const headers = createSecurityHeaders({
+    siteUrl: "https://cutout.example",
+    trustProxy: false,
+  });
+
+  assert.equal(headers["X-Content-Type-Options"], "nosniff");
+  assert.equal(headers["Referrer-Policy"], "no-referrer");
+  assert.equal(headers["Cross-Origin-Opener-Policy"], "same-origin");
+  assert.match(headers["Permissions-Policy"], /camera=\(\)/);
+  assert.match(headers["Content-Security-Policy"], /default-src 'self'/);
+  assert.match(headers["Content-Security-Policy"], /frame-ancestors 'none'/);
+  assert.match(headers["Strict-Transport-Security"], /max-age=31536000/);
 });
 
 test("anonymous processing is rejected", async () => {

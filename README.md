@@ -49,6 +49,7 @@ The default privacy posture is no image retention:
 - `/api/admin/review`, `/api/admin/users/:userId/status`, and `/api/admin/reports/:reportId/review` provide a minimal review surface for admins listed in `ADMIN_EMAILS`.
 - `/api/health` reports process liveness.
 - `/api/readiness` reports dependency readiness for Postgres and moderation.
+- Node and Sites responses include baseline browser hardening headers: CSP, no-sniff, no-referrer, opener isolation, permissions policy, and HSTS where HTTPS is expected.
 
 ## Runtime configuration
 
@@ -108,6 +109,12 @@ Build the product:
 npm run build
 ```
 
+Verify the generated Sites runtime:
+
+```bash
+npm run verify:sites
+```
+
 Run a launch preflight against the current environment:
 
 ```bash
@@ -138,8 +145,8 @@ Security audit:
 npm audit
 ```
 
-GitHub Actions runs `npm ci`, `npm test`, `npm run build`, and `npm audit --audit-level=moderate`
-on pushes to `main` and pull requests.
+GitHub Actions runs `npm ci`, `npm test`, `npm run build`, `npm run verify:sites`, and
+`npm audit --audit-level=moderate` on pushes to `main` and pull requests.
 
 ## CLI usage
 

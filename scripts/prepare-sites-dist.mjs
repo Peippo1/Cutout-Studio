@@ -25,9 +25,19 @@ for (const fileName of await readdir(assetsDir)) {
 const runtime = `const indexHtml = ${JSON.stringify(indexHtml)};
 const textAssets = new Map(${JSON.stringify(Object.entries(textAssets))});
 
+const securityHeaders = {
+  "content-security-policy": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; script-src 'self' https://challenges.cloudflare.com; style-src 'self'; frame-src https://challenges.cloudflare.com; connect-src 'self'",
+  "cross-origin-opener-policy": "same-origin",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=()",
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+};
+
 const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
+  ...securityHeaders,
 };
 
 function json(payload, init = {}) {
@@ -137,6 +147,7 @@ export async function fetch(request) {
     if (asset) {
       return new Response(asset, {
         headers: {
+          ...securityHeaders,
           "content-type": url.pathname.endsWith(".css")
             ? "text/css; charset=utf-8"
             : "application/javascript; charset=utf-8",
@@ -147,6 +158,7 @@ export async function fetch(request) {
 
     return new Response(indexHtml, {
       headers: {
+        ...securityHeaders,
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
       },

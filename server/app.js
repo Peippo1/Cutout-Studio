@@ -32,6 +32,34 @@ const SUPPORTED_MIME_TYPES = new Set([
   "image/heic",
   "image/tiff",
 ]);
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "img-src 'self' data: blob:",
+  "script-src 'self' https://challenges.cloudflare.com",
+  "style-src 'self'",
+  "frame-src https://challenges.cloudflare.com",
+  "connect-src 'self'",
+].join("; ");
+const SECURITY_HEADERS = {
+  "Content-Security-Policy": CONTENT_SECURITY_POLICY,
+  "Cross-Origin-Opener-Policy": "same-origin",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+  "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+};
+
+export function createSecurityHeaders(runtimeConfig = config) {
+  return {
+    ...SECURITY_HEADERS,
+    ...(runtimeConfig.siteUrl?.startsWith("https://") || runtimeConfig.trustProxy
+      ? { "Strict-Transport-Security": "max-age=31536000; includeSubDomains" }
+      : {}),
+  };
+}
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDir = path.dirname(currentFilePath);
@@ -118,6 +146,13 @@ export async function createApp({
 
   app.disable("x-powered-by");
   app.set("trust proxy", effectiveConfig.trustProxy ? 1 : 0);
+  app.use((_request, response, next) => {
+    for (const [header, value] of Object.entries(createSecurityHeaders(effectiveConfig))) {
+      response.setHeader(header, value);
+    }
+
+    next();
+  });
   app.use(express.json({ limit: "256kb" }));
   app.use((request, response, next) => {
     request.id = crypto.randomUUID();
