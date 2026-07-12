@@ -3,6 +3,14 @@ import connectPgSimple from "connect-pg-simple";
 import { Pool } from "pg";
 
 const SESSION_TABLE_NAME = "user_sessions";
+export const REQUIRED_TABLES = [
+  "users",
+  "policy_acceptances",
+  "audit_events",
+  "abuse_reports",
+  "moderation_decisions",
+  SESSION_TABLE_NAME,
+];
 
 function mapUserRow(row) {
   if (!row) {
@@ -25,6 +33,7 @@ export function createDataStore(runtimeConfig) {
   if (!runtimeConfig.databaseUrl) {
     return {
       async ensureReady() {},
+      async close() {},
       async getReadiness() {
         return { ok: false, detail: "DATABASE_URL is not configured." };
       },
@@ -126,6 +135,9 @@ export function createDataStore(runtimeConfig) {
   return {
     async ensureReady() {
       await ensureReady();
+    },
+    async close() {
+      await pool.end();
     },
     async getReadiness() {
       try {

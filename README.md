@@ -114,6 +114,12 @@ Run a launch preflight against the current environment:
 npm run deploy:preflight
 ```
 
+Prepare or verify the managed Postgres schema:
+
+```bash
+npm run db:prepare
+```
+
 Serve the built client through the API:
 
 ```bash
@@ -191,10 +197,11 @@ Recommended production launch sequence:
 
 1. Set the required runtime variables in Sites.
 2. Run `npm run deploy:preflight` locally against the same values.
-3. Verify `npm test`, `npm run build`, and `npm audit`.
-4. Save and deploy the matching Sites version.
-5. Confirm `/api/health` and `/api/readiness` are green on the live URL.
-6. Update the portfolio launch post and project page with the public beta link.
+3. Run `npm run db:prepare` against the managed Postgres database.
+4. Verify `npm test`, `npm run build`, and `npm audit`.
+5. Save and deploy the matching Sites version.
+6. Confirm `/api/health` and `/api/readiness` are green on the live URL.
+7. Update the portfolio launch post and project page with the public beta link.
 
 ## Tests added for this hardening pass
 
@@ -205,4 +212,5 @@ Recommended production launch sequence:
 - successful processing audit logging
 - abuse report creation
 - readiness degradation reporting
+- database readiness without `DATABASE_URL`
 - admin account review actions
